@@ -78,9 +78,4 @@ r = requests.put(full_url,
                   data=IterableToFileAdapter(file_it),
                   headers=headers)
 
-#data = open(file_path, 'rb').read()
-#r = requests.put(full_url,
-#                 data=data,
-#                 headers=headers)
-
 print(r.status_code)
