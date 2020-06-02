@@ -90,8 +90,9 @@ print(' '.join(conda_command))
 subprocess.call(conda_command)
 
 # provision pip packages
-pip_command = 'source {} && conda activate {} && pip install {}'.format('/'.join([conda_prefix,'etc/profile.d/conda.sh']), os.path.abspath(runtime_prefix), ' '.join(pip_packages))
-subprocess.check_call(pip_command, shell=True)
-#subprocess.call(['conda', 'activate', os.path.abspath(runtime_prefix), '&&', 'pip', 'install', '-y', '--freeze-installed']+pip_packages)
+if len(pip_packages) > 0:
+    pip_command = 'source {} && conda activate {} && pip install {}'.format('/'.join([conda_prefix,'etc/profile.d/conda.sh']), os.path.abspath(runtime_prefix), ' '.join(pip_packages))
+    subprocess.check_call(pip_command, shell=True)
+    #subprocess.call(['conda', 'activate', os.path.abspath(runtime_prefix), '&&', 'pip', 'install', '-y', '--freeze-installed']+pip_packages)
 
 print("Environment {} has been provisioned!".format(runtime_prefix))
