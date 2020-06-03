@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import subprocess
+import tempfile
 
 parser = argparse.ArgumentParser('Provision an action runtime')
 parser.add_argument('--package', help="Directory containing the c3 package", type=str, required=True)
@@ -70,29 +71,48 @@ for key in runtime_json['modules']:
 
 python_version = runtime_json['runtimeVersion']
 
-# Repos
-conda_repos = []
-for repo in runtime_json['repositories']:
-    if 'c3-e' not in repo:
-        conda_repos.append('-c')
-        conda_repos.append(repo)
+# Create temporary named file for requirements.yaml
+with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml') as temp_reqfile:
+    temp_reqfile.writelines(['#conda env create --file requirements.yaml\n'])
 
-# Find conda command
-if 'CONDA_PREFIX' not in os.environ:
-    raise RuntimeError("CONDA_PREFIX environment variable not defined!")
+    # name
+    temp_reqfile.writelines(['name: {}\n'.format(runtime)])
 
-conda_prefix = os.environ['CONDA_PREFIX']
-conda_exe = os.environ['CONDA_EXE']
+    # channels
+    temp_reqfile.writelines(['channels:\n'])
 
-# provision initial conda environment
-conda_command = [conda_exe, 'create', '-y', '-p', runtime_prefix]+conda_repos+['python='+python_version]+conda_packages
-print(' '.join(conda_command))
-subprocess.call(conda_command)
+    # Repos
+    for repo in runtime_json['repositories']:
+        if 'c3-e' not in repo:
+            temp_reqfile.writelines(['- '+repo+'\n'])
 
-# provision pip packages
-if len(pip_packages) > 0:
-    pip_command = 'source {} && conda activate {} && pip install {}'.format('/'.join([conda_prefix,'etc/profile.d/conda.sh']), os.path.abspath(runtime_prefix), ' '.join(pip_packages))
-    subprocess.check_call(pip_command, shell=True)
-    #subprocess.call(['conda', 'activate', os.path.abspath(runtime_prefix), '&&', 'pip', 'install', '-y', '--freeze-installed']+pip_packages)
+    # dependencies
+    temp_reqfile.writelines(['dependencies:\n'])
 
-print("Environment {} has been provisioned!".format(runtime_prefix))
+    # conda packages
+    for package in conda_packages:
+        temp_reqfile.writelines(['- '+package+'\n'])
+
+    # Write python version
+    temp_reqfile.writelines(['- python='+python_version+'\n'])
+
+    # pip packages
+    if len(pip_packages) > 0:
+        temp_reqfile.writelines([
+            '- pip\n',
+            '- pip:\n',
+        ])
+        for package in pip_packages:
+            temp_reqfile.writelines(['  - '+package+'\n'])
+
+    temp_reqfile.flush()
+
+    try:   
+        # provision initial conda environment
+        conda_command = ['conda', 'env', 'create', '-p', runtime_prefix, '--file', temp_reqfile.name]
+        print(' '.join(conda_command))
+        subprocess.check_call(conda_command)
+
+        print("Environment {} has been provisioned!".format(runtime_prefix))
+    except:
+        raise RuntimeError("Environment {} failed to be provisioned!".format(runtime_prefix))
