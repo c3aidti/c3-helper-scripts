@@ -78,4 +78,4 @@ r = requests.put(full_url,
                   data=IterableToFileAdapter(file_it),
                   headers=headers)
 
-print(r.status_code)
+print("{} - {}".format(r.status_code, requests.status_codes._codes[r.status_code][0]))
